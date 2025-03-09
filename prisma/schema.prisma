@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Custom enum for status
+enum EtatEnum {
+  open
+  in_progress
+  resolved
+}
+
+model Role {
+  id        Int        @id @map("role_id")
+  name      String        @map("role_name") @db.VarChar(50)
+  users     Utilisateur[]
+
+  @@map("Roles")
+}
+
+model Utilisateur {
+  id                  Int                   @id @default(autoincrement()) @map("user_id")
+  hashPassword        String                @map("hash_password") @db.VarChar(255)
+  roleId              Int                @map("role_id")
+  
+  // Relations
+  role                Role                  @relation(fields: [roleId], references: [id])
+  intervenant         Intervenant?
+  reportedInterventions Intervention[]      @relation("reportedBy")
+  historyEntries      HistoryIntervention[] @relation("loggedBy")
+
+  @@map("Utilisateurs")
+}
+
+model Intervenant {
+  personId            Int                   @id @default(autoincrement()) @map("person_id")
+  email               String                @db.VarChar(255)
+  fullname            String                @db.VarChar(255)
+  departement         String                @db.VarChar(255)
+  createdAt           DateTime              @map("created_at") @db.Timestamp(0)
+  jobPosition         String                @map("job_position") @db.VarChar(255)
+  userId              Int?                  @map("user_id") @unique
+  
+  // Relations
+  user                Utilisateur?          @relation(fields: [userId], references: [id])
+  assignedInterventions Intervention[]      @relation("assignedTo")
+
+  @@map("Intervenant")
+}
+
+model Intervention {
+  interventionId      Int                   @id @default(autoincrement()) @map("intervention_id")
+  createdAt           DateTime              @map("created_at") @db.Timestamp(0)
+  resolvedAt          DateTime?             @map("resolved_at") @db.Timestamp(0)
+  description         String                @db.VarChar(255)
+  etat                EtatEnum
+  priority            Int
+  reportedById        Int                   @map("reported_by_id")
+  assignedToId        Int                   @map("assigned_to_id")
+  
+  // Relations
+  reportedBy          Utilisateur           @relation("reportedBy", fields: [reportedById], references: [id])
+  assignedTo          Intervenant           @relation("assignedTo", fields: [assignedToId], references: [personId])
+  historyEntries      HistoryIntervention[]
+  equipements         EquipementIntervention[]
+
+  @@map("Interventions")
+}
+
+model Equipement {
+  codeInventaire      Int                @id @map("code_inventaire")
+  designation         String                @db.VarChar(255)
+  affectation         String                @db.VarChar(255)
+  typeId              Int                @map("type_id")
+  etat                EtatEnum?
+  misEnService        DateTime?              @map("mis_en_service") @db.Date
+  dateAcquisition     DateTime?              @map("date_acquisition") @db.Date
+  
+  // Relations
+  type                TypeEquipement        @relation(fields: [typeId], references: [id])
+  interventions       EquipementIntervention[]
+
+  @@map("Equipements")
+}
+
+model TypeEquipement {
+  id                  Int                @id @map("type_id")
+  name                String                @map("type_name") @db.VarChar(255)
+  category            String                @db.VarChar(255)
+  equipements         Equipement[]
+
+  @@map("Type_Equipement")
+}
+
+model HistoryIntervention {
+  historyId           Int                   @id @default(autoincrement()) @map("history_id")
+  interventionId      Int                   @map("intervention_id")
+  actionPerformed     String                @map("action_performed") @db.Text
+  partsUsed           String                @map("parts_used") @db.Text
+  technicianNotes     String                @map("technician_notes") @db.Text
+  loggedAt            DateTime              @map("logged_at") @db.Timestamp(0)
+  loggedById          Int                   @map("logged_by")
+  
+  // Relations
+  intervention        Intervention          @relation(fields: [interventionId], references: [interventionId])
+  loggedBy            Utilisateur           @relation("loggedBy", fields: [loggedById], references: [id])
+
+  @@map("history_interventions")
+}
+
+// Junction table for many-to-many relationship
+model EquipementIntervention {
+  equipementId        Int                @map("equipement_id")
+  interventionId      Int                   @map("intervention_id")
+  
+  // Relations
+  equipement          Equipement            @relation(fields: [equipementId], references: [codeInventaire])
+  intervention        Intervention          @relation(fields: [interventionId], references: [interventionId])
+
+  @@id([equipementId, interventionId])
+  @@map("Equipement_Intervention")
+}
