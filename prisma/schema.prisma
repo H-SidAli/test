@@ -1,126 +1,130 @@
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-// Custom enum for status
-enum EtatEnum {
-  open
-  in_progress
-  resolved
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
 }
 
 model Role {
-  id        Int        @id @map("role_id")
-  name      String        @map("role_name") @db.VarChar(50)
-  users     Utilisateur[]
+    role_id Int           @id @default(autoincrement())
+    name    String        @unique @db.VarChar(50)
+    users   UserAccount[]
 
-  @@map("Roles")
+    @@index([name])
 }
 
-model Utilisateur {
-  id                  Int                   @id @default(autoincrement()) @map("user_id")
-  hashPassword        String                @map("hash_password") @db.VarChar(255)
-  roleId              Int                @map("role_id")
-  
-  // Relations
-  role                Role                  @relation(fields: [roleId], references: [id])
-  intervenant         Intervenant?
-  reportedInterventions Intervention[]      @relation("reportedBy")
-  historyEntries      HistoryIntervention[] @relation("loggedBy")
+model UserAccount {
+    user_id             Int                   @id @default(autoincrement())
+    email               String                @unique @db.VarChar(255)
+    passwordHash        String?               @db.VarChar(255)
+    googleId            String?               @unique @db.VarChar(255)
+    role_id             Int
+    createdAt           DateTime              @default(now())
+    interventions       Intervention[]        @relation("reported_interventions")
+    person              Person?
+    role                Role                  @relation(fields: [role_id], references: [role_id], onDelete: Cascade)
+    interventionHistory InterventionHistory[]
 
-  @@map("Utilisateurs")
+    @@index([email])
+    @@index([googleId])
 }
 
-model Intervenant {
-  personId            Int                   @id @default(autoincrement()) @map("person_id")
-  email               String                @db.VarChar(255)
-  fullname            String                @db.VarChar(255)
-  departement         String                @db.VarChar(255)
-  createdAt           DateTime              @map("created_at") @db.Timestamp(0)
-  jobPosition         String                @map("job_position") @db.VarChar(255)
-  userId              Int?                  @map("user_id") @unique
-  
-  // Relations
-  user                Utilisateur?          @relation(fields: [userId], references: [id])
-  assignedInterventions Intervention[]      @relation("assignedTo")
+model Person {
+    person_id        Int                   @id @default(autoincrement())
+    fullName         String                @db.VarChar(255)
+    email            String?               @db.VarChar(255)
+    phoneNumber      String?               @db.VarChar(20)
+    department       String?               @db.VarChar(100)
+    userAccountId    Int?                  @unique
+    createdAt        DateTime              @default(now())
+    updatedAt        DateTime              @updatedAt
+    isTechnician     Boolean               @default(false)
+    assignedTasks    Intervention[]        @relation("assigned_tasks")
+    userAccount      UserAccount?          @relation(fields: [userAccountId], references: [user_id], onDelete: Cascade)
+    interventionLogs InterventionHistory[]
 
-  @@map("Intervenant")
+    @@index([fullName])
+    @@index([email])
 }
 
 model Intervention {
-  interventionId      Int                   @id @default(autoincrement()) @map("intervention_id")
-  createdAt           DateTime              @map("created_at") @db.Timestamp(0)
-  resolvedAt          DateTime?             @map("resolved_at") @db.Timestamp(0)
-  description         String                @db.VarChar(255)
-  etat                EtatEnum
-  priority            Int
-  reportedById        Int                   @map("reported_by_id")
-  assignedToId        Int                   @map("assigned_to_id")
-  
-  // Relations
-  reportedBy          Utilisateur           @relation("reportedBy", fields: [reportedById], references: [id])
-  assignedTo          Intervenant           @relation("assignedTo", fields: [assignedToId], references: [personId])
-  historyEntries      HistoryIntervention[]
-  equipements         EquipementIntervention[]
+    intervention_id Int                   @id @default(autoincrement())
+    description     String
+    priority        Priority              @default(MEDIUM)
+    status          InterventionStatus    @default(PENDING)
+    createdAt       DateTime              @default(now())
+    resolvedAt      DateTime?
+    reportedById    Int
+    assignedToId    Int?
+    equipment_id    Int
+    assignedTo      Person?               @relation("assigned_tasks", fields: [assignedToId], references: [person_id])
+    equipment       Equipment             @relation(fields: [equipment_id], references: [equipment_id])
+    reportedBy      UserAccount           @relation("reported_interventions", fields: [reportedById], references: [user_id])
+    history         InterventionHistory[]
 
-  @@map("Interventions")
+    @@index([status])
+    @@index([priority])
+    @@index([createdAt])
 }
 
-model Equipement {
-  codeInventaire      Int                @id @map("code_inventaire")
-  designation         String                @db.VarChar(255)
-  affectation         String                @db.VarChar(255)
-  typeId              Int                @map("type_id")
-  etat                EtatEnum?
-  misEnService        DateTime?              @map("mis_en_service") @db.Date
-  dateAcquisition     DateTime?              @map("date_acquisition") @db.Date
-  
-  // Relations
-  type                TypeEquipement        @relation(fields: [typeId], references: [id])
-  interventions       EquipementIntervention[]
+model Equipment {
+    equipment_id    Int             @id @default(autoincrement())
+    inventory_code  String          @unique @db.VarChar(50)
+    designation     String          @db.VarChar(255)
+    status          EquipmentStatus @default(IN_SERVICE)
+    createdAt       DateTime        @default(now())
+    updatedAt       DateTime?       @updatedAt
+    acquisitionDate DateTime?       @map("acquisition_date")
+    commissionDate  DateTime?       @map("commission_date")
+    typeId          Int             @map("type_id")
+    type            EquipmentType?  @relation(fields: [typeId], references: [id])
+    interventions   Intervention[]
 
-  @@map("Equipements")
+    @@index([inventory_code])
+    @@index([status])
 }
 
-model TypeEquipement {
-  id                  Int                @id @map("type_id")
-  name                String                @map("type_name") @db.VarChar(255)
-  category            String                @db.VarChar(255)
-  equipements         Equipement[]
+model EquipmentType {
+    id        Int         @id @default(autoincrement()) @map("type_id")
+    name      String      @unique @map("type_name") @db.VarChar(255)
+    category  String      @db.VarChar(255)
+    equipment Equipment[]
 
-  @@map("Type_Equipement")
+    @@map("equipment_types")
 }
 
-model HistoryIntervention {
-  historyId           Int                   @id @default(autoincrement()) @map("history_id")
-  interventionId      Int                   @map("intervention_id")
-  actionPerformed     String                @map("action_performed") @db.Text
-  partsUsed           String                @map("parts_used") @db.Text
-  technicianNotes     String                @map("technician_notes") @db.Text
-  loggedAt            DateTime              @map("logged_at") @db.Timestamp(0)
-  loggedById          Int                   @map("logged_by")
-  
-  // Relations
-  intervention        Intervention          @relation(fields: [interventionId], references: [interventionId])
-  loggedBy            Utilisateur           @relation("loggedBy", fields: [loggedById], references: [id])
+model InterventionHistory {
+    id             Int          @id @default(autoincrement()) @map("history_id")
+    interventionId Int          @map("intervention_id")
+    action         String
+    partsUsed      String?      @map("parts_used")
+    notes          String?
+    loggedAt       DateTime     @default(now()) @map("logged_at")
+    loggedById     Int          @map("logged_by_id")
+    userAccountId  Int?         @map("user_account_id")
+    intervention   Intervention @relation(fields: [interventionId], references: [intervention_id])
+    loggedBy       Person       @relation(fields: [loggedById], references: [person_id])
+    userAccount    UserAccount? @relation(fields: [userAccountId], references: [user_id])
 
-  @@map("history_interventions")
+    @@map("intervention_history")
 }
 
-// Junction table for many-to-many relationship
-model EquipementIntervention {
-  equipementId        Int                @map("equipement_id")
-  interventionId      Int                   @map("intervention_id")
-  
-  // Relations
-  equipement          Equipement            @relation(fields: [equipementId], references: [codeInventaire])
-  intervention        Intervention          @relation(fields: [interventionId], references: [interventionId])
+enum Priority {
+    LOW
+    MEDIUM
+    HIGH
+}
 
-  @@id([equipementId, interventionId])
-  @@map("Equipement_Intervention")
+enum InterventionStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+}
+
+enum EquipmentStatus {
+    IN_SERVICE
+    OUT_OF_SERVICE
+    UNDER_MAINTENANCE
 }

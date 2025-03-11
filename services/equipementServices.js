@@ -1,42 +1,76 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-async function createEquipement(data) {
-    return await prisma.equipement.create({
+// Create a new equipment
+async function createEquipment(data) {
+    return await prisma.equipment.create({
         data: {
-            codeInventaire: parseInt(data.codeInventaire),
+            inventory_code: data.inventory_code,
             designation: data.designation,
-            affectation: data.affectation,
+            status: data.status,
             typeId: parseInt(data.typeId),
-            etat: data.etat,
-            misEnService: new Date(data.misEnService),
-            dateAcquisition: new Date(data.dateAcquisition),
+            acquisitionDate: new Date(data.acquisitionDate),
+            commissionDate: new Date(data.commissionDate),
         },
         include: {
-            type: true, // Include the equipment type in the response
+            type: true,
         },
     });
 }
 
-async function getEquipements(){
-    return await prisma.equipement.findMany({
+// Get all equipment
+async function getEquipments() {
+    return await prisma.equipment.findMany({
         include: {
-            type: true, // Include the equipment type in the response
+            type: true,
         },
     });
 }
 
-async function getEquipementById(equipementId){
-    return await prisma.equipement.findUnique(
-        {
-            where: {
-                codeInventaire: parseInt(equipementId),
-            },
-            include: {
-                type: true, // Include the equipment type in the response
-            }
-        }
-    );
+// Get a single equipment by ID
+async function getEquipmentById(equipmentId) {
+    return await prisma.equipment.findUnique({
+        where: {
+            equipment_id: parseInt(equipmentId),
+        },
+        include: {
+            type: true,
+        },
+    });
 }
 
-module.exports = { createEquipement , getEquipements , getEquipementById};
+// Delete an equipment by ID
+async function deleteEquipment(equipmentId) {
+    return await prisma.equipment.delete({
+        where: {
+            equipment_id: parseInt(equipmentId),
+        },
+    });
+}
+
+// Update equipment details
+async function updateEquipment(equipmentId, data) {
+    return await prisma.equipment.update({
+        where: {
+            equipment_id: parseInt(equipmentId),
+        },
+        data: {
+            designation: data.designation,
+            status: data.status,
+            typeId: parseInt(data.typeId),
+            acquisitionDate: new Date(data.acquisitionDate),
+            commissionDate: new Date(data.commissionDate),
+        },
+        include: {
+            type: true,
+        },
+    });
+}
+
+module.exports = {
+    createEquipment,
+    getEquipments,
+    getEquipmentById,
+    deleteEquipment,
+    updateEquipment,
+};
