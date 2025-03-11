@@ -2,12 +2,15 @@ const express = require('express');
 
 const app = express();
 
-const equipementRoutes = require('./routes/equipementRoutes');
+const equipementRouter = require('./routes/equipementRoutes');
+const equipementTypeRouter = require('./routes/equipementTypeRoutes.js');
 
 app.use(express.json());
 
 
-app.use('/equipements', equipementRoutes);
+app.use('/equipements', equipementRouter);
+app.use('/equipementTypes', equipementTypeRouter);
+app.use('/interventions', interventionRouter);
 
 
 app.get('/', (req, res) => {
